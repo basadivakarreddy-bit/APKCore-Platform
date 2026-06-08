@@ -77,14 +77,21 @@ function StoreContainer() {
     });
 
     // Subscribe to real-time credential handshake changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         const userObj = mapSupabaseUserToAuthUser(session.user);
+        const existingUser = localStorage.getItem('apk_store_current_user');
+        
         setCurrentUser(userObj);
         localStorage.setItem('apk_store_current_user', JSON.stringify(userObj));
-        // Redirect the user to the Home page ('/') on changes
-        setActiveTab('catalog');
-        setSelectedAppSlug(null);
+        
+        // Only trigger a redirect to catalog home on brand new, explicit SIGNED_IN events
+        // to prevent resetting the user's active tab/navigation when browser tab switching
+        // triggers auth state background checks or token refreshes.
+        if (event === 'SIGNED_IN' && !existingUser) {
+          setActiveTab('catalog');
+          setSelectedAppSlug(null);
+        }
       } else {
         setCurrentUser(null);
         localStorage.removeItem('apk_store_current_user');

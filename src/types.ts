@@ -4,6 +4,7 @@ export interface UserReview {
   comment: string;
   author: string;
   date: string;
+  email?: string;
 }
 
 export interface App {
@@ -25,6 +26,8 @@ export interface App {
   whatsNew: string;
   apkUrl: string;
   iconUrl: string;
+  rawApkUrl?: string;
+  rawIconUrl?: string;
   screenshots: string[];
   isFeatured?: boolean;
   releaseDate: string;

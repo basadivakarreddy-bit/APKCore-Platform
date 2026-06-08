@@ -312,6 +312,66 @@ function StoreContainer() {
     }
   }, [theme]);
 
+  const resolveSignedUrls = async (appsList: AppType[]): Promise<AppType[]> => {
+    try {
+      const pathsToSign: string[] = [];
+      appsList.forEach(app => {
+        // Collect private icon files (which won't start with HTTP/HTTPS or data image prefixes)
+        if (app.iconUrl && !app.iconUrl.startsWith('http') && !app.iconUrl.startsWith('data:') && app.iconUrl.includes('/')) {
+          pathsToSign.push(app.iconUrl);
+        }
+        // Collect private apk files
+        if (app.apkUrl && !app.apkUrl.startsWith('http') && app.apkUrl.includes('/')) {
+          pathsToSign.push(app.apkUrl);
+        }
+      });
+
+      if (pathsToSign.length === 0) {
+        return appsList;
+      }
+
+      // De-duplicate paths to sign
+      const uniquePaths = Array.from(new Set(pathsToSign));
+
+      // Fetch signed URLs (valid for 1 hour)
+      const { data, error } = await supabase.storage
+        .from('app-files')
+        .createSignedUrls(uniquePaths, 3600);
+
+      if (error || !data) {
+        console.warn('Failed to retrieve signed URLs from Supabase Storage:', error);
+        return appsList;
+      }
+
+      // Map signed URLs back to apps
+      return appsList.map(app => {
+        let signedIcon = app.iconUrl;
+        let signedApk = app.apkUrl;
+
+        const iconMatch = data.find(item => item.path === app.iconUrl);
+        if (iconMatch?.signedUrl) {
+          signedIcon = iconMatch.signedUrl;
+        }
+
+        const apkMatch = data.find(item => item.path === app.apkUrl);
+        if (apkMatch?.signedUrl) {
+          signedApk = apkMatch.signedUrl;
+        }
+
+        return {
+          ...app,
+          rawIconUrl: app.rawIconUrl || app.iconUrl,
+          rawApkUrl: app.rawApkUrl || app.apkUrl,
+          iconUrl: signedIcon,
+          apkUrl: signedApk
+        };
+      });
+    } catch (err) {
+      console.error('Error resolving signed URLs:', err);
+      return appsList;
+    }
+  };
+
   // Load apps from Supabase
   const loadApps = async () => {
     setIsLoading(true);
@@ -324,7 +384,8 @@ function StoreContainer() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setApps(data as AppType[]);
+        const resolved = await resolveSignedUrls(data as AppType[]);
+        setApps(resolved);
       } else {
         // DB is empty! Let's auto-seed the Supabase DB if the user has an auth session
         console.log("No apps found in Supabase. Seeding...");
@@ -349,7 +410,8 @@ function StoreContainer() {
             .select('*')
             .order('created_at', { ascending: false });
           if (refetched) {
-            setApps(refetched as AppType[]);
+            const resolved = await resolveSignedUrls(refetched as AppType[]);
+            setApps(resolved);
           }
         } else {
           console.warn("Seeding database failed (this is expected if not authenticated admin):", seedError);
@@ -473,7 +535,7 @@ function StoreContainer() {
 
       if (error) throw error;
       
-      toast(`"${newApp.name}" successfully added to Supabase database!`, 'success');
+      toast(`"${newApp.name}" has been successfully added!`, 'success');
       loadApps();
     } catch (err: any) {
       console.error('Error adding app to Supabase:', err);
@@ -493,7 +555,7 @@ function StoreContainer() {
 
       if (error) throw error;
 
-      toast(`"${updatedApp.name}" successfully updated in Supabase database!`, 'success');
+      toast(`"${updatedApp.name}" has been successfully updated!`, 'success');
       loadApps();
     } catch (err: any) {
       console.error('Error updating app in Supabase:', err);
@@ -516,8 +578,19 @@ function StoreContainer() {
 
       if (error) throw error;
 
+      // Clean up files in private Supabase Storage
+      const iconPath = appToRestore.rawIconUrl || appToRestore.iconUrl;
+      const apkPath = appToRestore.rawApkUrl || appToRestore.apkUrl;
+
+      if (iconPath && !iconPath.startsWith('http') && !iconPath.startsWith('data:') && iconPath.includes('/')) {
+        await supabase.storage.from('app-files').remove([iconPath]);
+      }
+      if (apkPath && !apkPath.startsWith('http') && apkPath.includes('/')) {
+        await supabase.storage.from('app-files').remove([apkPath]);
+      }
+
       toast(
-        `"${appToRestore.name}" permanently deleted from Supabase database.`,
+        `"${appToRestore.name}" has been permanently deleted.`,
         'info',
         7000,
         async () => {
@@ -565,7 +638,7 @@ function StoreContainer() {
         .insert([msgToInsert]);
 
       if (error) throw error;
-      toast('Your message has been successfully saved to Supabase!', 'success');
+      toast('Your message has been sent successfully!', 'success');
       loadMessages();
     } catch (err: any) {
       console.error('Error sending message:', err);
@@ -635,12 +708,16 @@ function StoreContainer() {
     const app = apps.find((a) => a.id === appId);
     if (!app) return;
 
+    const session = await supabase.auth.getSession();
+    const userEmail = session?.data?.session?.user?.email || currentUser?.email || null;
+
     const newReview = {
       id: Math.random().toString(36).substring(2, 9),
       rating,
       comment,
       author: author.trim() || 'Anonymous',
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      email: userEmail
     };
 
     const currentReviews = app.reviews || [];
@@ -662,13 +739,45 @@ function StoreContainer() {
 
       if (error) {
         console.error('Could not submit review to Supabase:', error);
-        toast('Your review was stored locally, but could not sync with Supabase.', 'info');
+        toast('Your review was stored locally, but could not link to server.', 'info');
       } else {
-        toast('Your review has been successfully submitted to Supabase!', 'success');
+        toast('Your review has been successfully submitted!', 'success');
         loadApps();
       }
     } catch (err) {
       console.error('Review submission error:', err);
+    }
+  };
+
+  const handleDeleteReview = async (appId: string, reviewId: string) => {
+    const app = apps.find((a) => a.id === appId);
+    if (!app || !app.reviews) return;
+
+    const newReviews = app.reviews.filter((r) => r.id !== reviewId);
+    let newAverage = 0;
+    if (newReviews.length > 0) {
+      const totalRating = newReviews.reduce((sum, r) => sum + r.rating, 0);
+      newAverage = parseFloat((totalRating / newReviews.length).toFixed(1));
+    }
+
+    // Optimistic UI update
+    setApps(prev => prev.map(a => a.id === appId ? { ...a, reviews: newReviews, rating: newAverage } : a));
+
+    try {
+      const { error } = await supabase
+        .from('apps')
+        .update({
+          reviews: newReviews,
+          rating: newAverage
+        })
+        .eq('id', appId);
+
+      if (error) throw error;
+      toast('Review successfully deleted.', 'info');
+      loadApps();
+    } catch (err: any) {
+      console.error('Error deleting review:', err);
+      toast(`Failed to delete review: ${err.message}`, 'error');
     }
   };
 
@@ -846,6 +955,8 @@ function StoreContainer() {
                 onIncrementDownloads={handleIncrementDownloads}
                 onAddReview={handleAddReview}
                 onShareApp={handleShareApp}
+                currentUser={currentUser}
+                onDeleteReview={handleDeleteReview}
               />
             </motion.div>
           ) : activeTab === 'admin' ? (

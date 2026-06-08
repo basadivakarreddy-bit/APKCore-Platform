@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Download, ShieldCheck, HelpCircle, Calendar, Sparkles, Layers, Info, Check, Play, Star, MessageSquare, User, PenTool, Server, Zap, Wifi, Cpu, Activity, Share2 } from 'lucide-react';
-import { App } from '../types';
+import { ArrowLeft, Download, ShieldCheck, HelpCircle, Calendar, Sparkles, Layers, Info, Check, Play, Star, MessageSquare, User, PenTool, Server, Zap, Wifi, Cpu, Activity, Share2, Trash2 } from 'lucide-react';
+import { App, AuthUser } from '../types';
 import { AppIcon } from './AppIcon';
 import { useToast } from './Toast';
 
@@ -10,9 +10,11 @@ interface AppDetailsProps {
   onIncrementDownloads: (appId: string) => void;
   onAddReview: (appId: string, rating: number, comment: string, author: string) => void;
   onShareApp: (app: App) => void;
+  currentUser?: AuthUser | null;
+  onDeleteReview?: (appId: string, reviewId: string) => void;
 }
 
-export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onShareApp }: AppDetailsProps) {
+export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onShareApp, currentUser, onDeleteReview }: AppDetailsProps) {
   const [activeScreenshot, setActiveScreenshot] = useState(0);
   const [reviewRating, setReviewRating] = useState(5);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
@@ -596,7 +598,19 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
                     <div key={rev.id} className="p-4 bg-slate-950/30 border border-white/5 rounded-xl flex flex-col gap-2 transition-all hover:bg-slate-950/50">
                       <div className="flex items-start justify-between gap-4">
                         <div>
-                          <span className="font-bold text-slate-200 text-xs block">{rev.author}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-200 text-xs block">{rev.author}</span>
+                            {currentUser && (currentUser.role === 'admin' || (rev.email && currentUser.email && rev.email.toLowerCase() === currentUser.email.toLowerCase())) && (
+                              <button
+                                type="button"
+                                onClick={() => onDeleteReview && onDeleteReview(app.id, rev.id)}
+                                className="text-rose-400 hover:text-rose-300 transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center justify-center"
+                                title="Delete Review"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                           <span className="text-[9px] text-[#00D9FF] font-semibold mt-0.5 block flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> Verified Installer
                           </span>

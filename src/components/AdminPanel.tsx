@@ -10,6 +10,7 @@ import {
 import { App, Message, StorageConfig } from '../types';
 import { AppIcon } from './AppIcon';
 import { useToast } from './Toast';
+import { supabase } from '../supabaseClient';
 
 interface AdminPanelProps {
   apps: App[];
@@ -67,6 +68,8 @@ export function AdminPanel({
   // File Upload states for simulation
   const [uploadedIconFile, setUploadedIconFile] = useState<string | null>(null);
   const [uploadedApkFile, setUploadedApkFile] = useState<string | null>(null);
+  const [uploadedIconFileRaw, setUploadedIconFileRaw] = useState<File | null>(null);
+  const [uploadedApkFileRaw, setUploadedApkFileRaw] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   const totalDownloads = apps.reduce((sum, current) => sum + current.downloads, 0);
@@ -127,6 +130,8 @@ export function AdminPanel({
     setFormApkName('');
     setUploadedIconFile(null);
     setUploadedApkFile(null);
+    setUploadedIconFileRaw(null);
+    setUploadedApkFileRaw(null);
   };
 
   const handleEditClick = (app: App) => {
@@ -142,10 +147,12 @@ export function AdminPanel({
     setFormFeatures(app.features.join('\n'));
     setFormPermissions(app.permissions.join('\n'));
     setFormWhatsNew(app.whatsNew);
-    setFormIconUrl(app.iconUrl);
-    setFormApkName(app.apkUrl);
+    setFormIconUrl(app.rawIconUrl || app.iconUrl);
+    setFormApkName(app.rawApkUrl || app.apkUrl);
     setUploadedIconFile(null);
     setUploadedApkFile(null);
+    setUploadedIconFileRaw(null);
+    setUploadedApkFileRaw(null);
     setActiveTab('add-app');
   };
 
@@ -161,24 +168,50 @@ export function AdminPanel({
 
   const processUploadedFile = (file: File, type: 'icon' | 'apk') => {
     if (type === 'icon') {
+      setUploadedIconFileRaw(file);
       // Compress image to Base64 to save local storage quota
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const base64String = uploadEvent.target?.result as string;
         setUploadedIconFile(base64String);
-        setFormIconUrl(base64String.substring(0, 15)); // Custom prefix initializer matching AppIcon fallback
-        toast(`App Icon "${file.name}" compressed and accepted.`, 'success');
+        setFormIconUrl(base64String); // Set it so the UI has immediate preview
+        toast(`App Icon "${file.name}" ready to be uploaded.`, 'success');
       };
       reader.readAsDataURL(file);
     } else {
+      setUploadedApkFileRaw(file);
       setUploadedApkFile(file.name);
       setFormApkName(file.name);
       setFormSize(`${(file.size / (1024 * 1024)).toFixed(1)} MB`);
-      toast(`APK Binary"${file.name}" verified and accepted under staging.`, 'success');
+      toast(`APK Binary "${file.name}" ready to be uploaded.`, 'success');
     }
   };
 
-  const handleSaveApp = (e: React.FormEvent) => {
+  const uploadFileToSupabase = async (file: File, featureName: string, itemId: string) => {
+    const sessionRes = await supabase.auth.getSession();
+    const userId = sessionRes.data?.session?.user?.id;
+    if (!userId) {
+      throw new Error("Authentication required to upload files.");
+    }
+    
+    const uuid = Math.random().toString(36).substring(2, 9);
+    const extension = file.name.split('.').pop() || 'png';
+    const filePath = `${userId}/${featureName}/${itemId}/${uuid}.${extension}`;
+
+    const { data, error } = await supabase.storage
+      .from('app-files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) {
+      throw error;
+    }
+    return data.path; // e.g. "userId/apps/itemId/uuid.extension"
+  };
+
+  const handleSaveApp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName || !formShortDesc || !formDesc) {
       toast('Please supply name and descriptions tags.', 'error');
@@ -188,9 +221,49 @@ export function AdminPanel({
     const featureArr = formFeatures.split('\n').map(f => f.trim()).filter(Boolean);
     const permissionArr = formPermissions.split('\n').map(p => p.trim()).filter(Boolean);
     const slug = formName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const appId = editingAppId || slug;
+
+    let finalIconUrl = formIconUrl;
+    let finalApkUrl = formApkName;
+    let rawIconUrlVal = apps.find(a => a.id === appId)?.rawIconUrl || undefined;
+    let rawApkUrlVal = apps.find(a => a.id === appId)?.rawApkUrl || undefined;
+
+    if (uploadedIconFileRaw || uploadedApkFileRaw) {
+      toast('Uploading assets to private Supabase Storage...', 'info');
+    }
+
+    try {
+      if (uploadedIconFileRaw) {
+        // Delete previous icon in private storage if exists
+        const oldRawIcon = apps.find(a => a.id === appId)?.rawIconUrl;
+        if (oldRawIcon && !oldRawIcon.startsWith('http')) {
+          await supabase.storage.from('app-files').remove([oldRawIcon]);
+        }
+        
+        const path = await uploadFileToSupabase(uploadedIconFileRaw, 'apps', appId);
+        finalIconUrl = path;
+        rawIconUrlVal = path;
+      }
+
+      if (uploadedApkFileRaw) {
+        // Delete previous apk in private storage if exists
+        const oldRawApk = apps.find(a => a.id === appId)?.rawApkUrl;
+        if (oldRawApk && !oldRawApk.startsWith('http')) {
+          await supabase.storage.from('app-files').remove([oldRawApk]);
+        }
+
+        const path = await uploadFileToSupabase(uploadedApkFileRaw, 'apps', appId);
+        finalApkUrl = path;
+        rawApkUrlVal = path;
+      }
+    } catch (uploadError: any) {
+      console.error('Error uploading files to Supabase:', uploadError);
+      toast(`Upload failed: ${uploadError.message}. App not saved.`, 'error');
+      return;
+    }
 
     const appPayload: App = {
-      id: editingAppId || slug,
+      id: appId,
       name: formName,
       slug,
       version: formVersion,
@@ -206,22 +279,22 @@ export function AdminPanel({
       features: featureArr.length > 0 ? featureArr : ['Sleek custom layout metrics.'],
       permissions: permissionArr.length > 0 ? permissionArr : ['Internet'],
       whatsNew: formWhatsNew || 'Performance audits and clean improvements.',
-      apkUrl: formApkName || `${slug}_v${formVersion}.apk`,
-      iconUrl: uploadedIconFile || formIconUrl || `${formName.substring(0, 2)}`,
+      apkUrl: finalApkUrl || `${slug}_v${formVersion}.apk`,
+      iconUrl: finalIconUrl || `${formName.substring(0, 2)}`,
+      rawIconUrl: rawIconUrlVal,
+      rawApkUrl: rawApkUrlVal,
       screenshots: ['sc-default-1', 'sc-default-2'],
       releaseDate: editingAppId ? apps.find(a => a.id === editingAppId)?.releaseDate || new Date().toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     };
 
     if (editingAppId) {
       onUpdateApp(appPayload);
-      toast(`"${formName}" updated successfully inside store!`, 'success');
     } else {
       if (apps.some(a => a.id === appPayload.id)) {
         toast(`An application with id "${appPayload.id}" already exists.`, 'error');
         return;
       }
       onAddApp(appPayload);
-      toast(`"${formName}" published inside Store list!`, 'success');
     }
 
     resetForm();

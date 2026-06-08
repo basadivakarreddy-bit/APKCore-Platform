@@ -145,6 +145,22 @@ export function AppIcon({ iconUrl, className = '', size = 'md', glow = true }: A
         );
 
       default:
+        // Check if iconUrl is a valid base64 image or real URL path
+        if (iconUrl.startsWith('http') || iconUrl.startsWith('data:image') || iconUrl.includes('/') || iconUrl.includes('.')) {
+          return (
+            <img 
+              src={iconUrl} 
+              alt="App Icon" 
+              className="w-full h-full object-cover rounded-[inherit]"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                // fallback to procedural if loading fails
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          );
+        }
+
         // Dynamic procedural abstract icon for standard uploaded apps
         const hash = iconUrl.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         const hue1 = hash % 360;

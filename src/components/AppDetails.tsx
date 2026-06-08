@@ -33,6 +33,25 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
 
   const { toast } = useToast();
 
+  // State to track submitted reviews on this browser session for self-deletion permission
+  const [localSubmittedReviews, setLocalSubmittedReviews] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apk_store_submitted_reviews') || '[]');
+      setLocalSubmittedReviews(saved);
+    } catch (e) {
+      console.error('Error reading submitted review IDs', e);
+    }
+  }, [app.reviews]);
+
+  // Prepopulate author name if user is logged in
+  useEffect(() => {
+    if (currentUser && !reviewAuthor) {
+      setReviewAuthor(currentUser.name);
+    }
+  }, [currentUser]);
+
   useEffect(() => {
     return () => {
       if (downloadIntervalRef.current) {
@@ -95,20 +114,32 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
         setEtaSeconds(0);
         toast(`${app.name} APK downloaded successfully via ${cdnNode}!`, 'success');
 
-        // Trigger simulated file download
+        // Trigger simulated or real file download
         try {
-          const blob = new Blob([`Simulated APK binary payload for ${app.name} v${app.version}`], { type: 'application/vnd.android.package-archive' });
-          const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
-          a.href = url;
-          a.download = `${app.slug}_v${app.version}.apk`;
+          
+          let finalDownloadUrl = app.apkUrl;
+          if (app.id === 'nexus-qr' || app.slug === 'nexus-qr' || app.name.toLowerCase().includes('nexus') || app.name.toLowerCase().includes('qr')) {
+            finalDownloadUrl = "https://pgeizyxtikgjidbejxoy.supabase.co/storage/v1/object/sign/app-files/13871fe6-1ad5-4257-9b6c-66838e9fee4e/apps/nexus-qr/zce6qek.apk?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NmVlZWMzZi1hYzg4LTRjNGYtODk4My0wOWFjMTMyNDk2MWIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhcHAtZmlsZXMvMTM4NzFmZTYtMWFkNS00MjU3LTliNmMtNjY4MzhlOWZlZTRlL2FwcHMvbmV4dXMtcXIvemNlNnFlay5hcGsiLCJpYXQiOjE3ODA5MjU0NTgsImV4cCI6MTgxMjQ2MTQ1OH0.tOerIuK3hvyEw0Rb4Cg0c8X5hsae9dlX01wSXNXHaXY";
+          }
+          
+          if (finalDownloadUrl && finalDownloadUrl.startsWith('http')) {
+            a.href = finalDownloadUrl;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+          } else {
+            const blob = new Blob([`Simulated APK binary payload for ${app.name} v${app.version}`], { type: 'application/vnd.android.package-archive' });
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = `${app.slug}_v${app.version}.apk`;
+          }
+          
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          URL.revokeObjectURL(url);
         } catch (e) {
-          console.error('File generation skipped inside sandbox format.', e);
+          console.error('File generation/download skipped inside sandbox format.', e);
         }
 
         // Return progress hook to idle
@@ -284,7 +315,7 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
           </div>
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-3 text-center gap-2">
-          <AppIcon iconUrl={app.iconUrl} size="sm" glow={false} />
+          <AppIcon iconUrl={app.iconUrl} name={app.name} size="sm" glow={false} />
           <div>
             <h5 className="font-bold text-[10px] text-white leading-tight">{app.name}</h5>
             <p className="text-[8px] text-slate-400 mt-0.5 mt-1">{app.shortDescription}</p>
@@ -328,7 +359,7 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
           <div className="p-6 md:p-8 rounded-[24px] bg-white/5 border border-white/5 backdrop-blur-xl relative overflow-hidden flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <div className="absolute top-[-40px] right-[-40px] w-48 h-48 bg-gradient-to-tr from-cyan-400/5 to-purple-600/5 rounded-full blur-3xl pointer-events-none" />
             
-            <AppIcon iconUrl={app.iconUrl} size="lg" glow={true} className="flex-shrink-0" />
+            <AppIcon iconUrl={app.iconUrl} name={app.name} size="lg" glow={true} className="flex-shrink-0" />
             
             <div className="flex-1 text-center sm:text-left">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 mb-2">
@@ -600,11 +631,22 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-200 text-xs block">{rev.author}</span>
-                            {currentUser && (currentUser.role === 'admin' || (rev.email && currentUser.email && rev.email.toLowerCase() === currentUser.email.toLowerCase())) && (
+                            {((currentUser && (currentUser.role === 'admin' || (rev.email && currentUser.email && rev.email.toLowerCase() === currentUser.email.toLowerCase()))) || (rev.id && localSubmittedReviews.includes(rev.id))) && (
                               <button
                                 type="button"
-                                onClick={() => onDeleteReview && onDeleteReview(app.id, rev.id)}
-                                className="text-rose-400 hover:text-rose-300 transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center justify-center"
+                                onClick={() => {
+                                  if (onDeleteReview) {
+                                    onDeleteReview(app.id, rev.id);
+                                    try {
+                                      const updatedList = localSubmittedReviews.filter(id => id !== rev.id);
+                                      setLocalSubmittedReviews(updatedList);
+                                      localStorage.setItem('apk_store_submitted_reviews', JSON.stringify(updatedList));
+                                    } catch (e) {
+                                      console.error(e);
+                                    }
+                                  }
+                                }}
+                                className="text-rose-400 hover:text-rose-300 transition-colors p-0.5 rounded hover:bg-white/5 cursor-pointer flex items-center justify-center animate-[pulse_1.5s_infinite]"
                                 title="Delete Review"
                               >
                                 <Trash2 className="w-3 h-3" />

@@ -746,6 +746,15 @@ function StoreContainer() {
     // Optimistic UI review addition
     setApps(prev => prev.map(a => a.id === appId ? { ...a, reviews: newReviews, rating: newAverage } : a));
 
+    // Register this review ID as submitted by this local user
+    try {
+      const existingReviews = JSON.parse(localStorage.getItem('apk_store_submitted_reviews') || '[]');
+      existingReviews.push(newReview.id);
+      localStorage.setItem('apk_store_submitted_reviews', JSON.stringify(existingReviews));
+    } catch (e) {
+      console.error('Error updating locally submitted reviews cache', e);
+    }
+
     try {
       const { error } = await supabase
         .from('apps')
@@ -780,6 +789,15 @@ function StoreContainer() {
 
     // Optimistic UI update
     setApps(prev => prev.map(a => a.id === appId ? { ...a, reviews: newReviews, rating: newAverage } : a));
+
+    // Clean up local submission list
+    try {
+      const existingReviews = JSON.parse(localStorage.getItem('apk_store_submitted_reviews') || '[]');
+      const updatedReviews = existingReviews.filter((id: string) => id !== reviewId);
+      localStorage.setItem('apk_store_submitted_reviews', JSON.stringify(updatedReviews));
+    } catch (e) {
+      console.error('Error cleaning up locally submitted reviews cache', e);
+    }
 
     try {
       const { error } = await supabase
@@ -1243,7 +1261,7 @@ function StoreContainer() {
 
                     {/* Frosted Container */}
                     <div className="bg-slate-950/75 backdrop-blur-2xl rounded-[23px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
-                      <AppIcon iconUrl={featuredApp.iconUrl} size="lg" glow={true} className="flex-shrink-0" />
+                      <AppIcon iconUrl={featuredApp.iconUrl} name={featuredApp.name} size="lg" glow={true} className="flex-shrink-0" />
                       
                       <div className="flex-1 text-center md:text-left">
                         <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2">
@@ -1464,7 +1482,7 @@ function StoreContainer() {
                           
                           {/* Upper app info */}
                           <div className="flex items-start gap-4">
-                            <AppIcon iconUrl={app.iconUrl} size="md" glow={false} className="transition-transform group-hover:scale-105 duration-300" />
+                            <AppIcon iconUrl={app.iconUrl} name={app.name} size="md" glow={false} className="transition-transform group-hover:scale-105 duration-300" />
                             <div className="flex-1 min-w-0">
                               <span className="text-[9px] font-mono bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded text-purple-300 font-bold uppercase tracking-wider">
                                 {app.category}

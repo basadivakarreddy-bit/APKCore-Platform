@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface AppIconProps {
   iconUrl: string;
+  name?: string;
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   glow?: boolean;
 }
 
-export function AppIcon({ iconUrl, className = '', size = 'md', glow = true }: AppIconProps) {
+export function AppIcon({ iconUrl, name = '', className = '', size = 'md', glow = true }: AppIconProps) {
+  const [imgError, setImgError] = useState(false);
+
   const sizeClasses = {
     sm: 'w-10 h-10 text-xs rounded-xl',
     md: 'w-14 h-14 text-sm rounded-2xl',
@@ -145,27 +148,39 @@ export function AppIcon({ iconUrl, className = '', size = 'md', glow = true }: A
         );
 
       default:
-        // Check if iconUrl is a valid base64 image or real URL path
-        if (iconUrl.startsWith('http') || iconUrl.startsWith('data:image') || iconUrl.includes('/') || iconUrl.includes('.')) {
+        // Check if iconUrl is a valid base64 image or real URL path, and has not failed previously
+        if (!imgError && (iconUrl.startsWith('http') || iconUrl.startsWith('data:image') || iconUrl.includes('/') || iconUrl.includes('.'))) {
           return (
             <img 
               src={iconUrl} 
               alt="App Icon" 
               className="w-full h-full object-cover rounded-[inherit]"
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                // fallback to procedural if loading fails
-                (e.target as HTMLElement).style.display = 'none';
+              onError={() => {
+                setImgError(true);
               }}
             />
           );
         }
 
-        // Dynamic procedural abstract icon for standard uploaded apps
-        const hash = iconUrl.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        // Dynamic procedural abstract icon for standard uploaded apps or load failure fallback
+        const baseString = name || iconUrl || 'App';
+        const hash = baseString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         const hue1 = hash % 360;
         const hue2 = (hue1 + 140) % 360;
-        const initials = iconUrl.substring(0, 2).toUpperCase() || 'AP';
+        
+        // Clean initials determination: first letter of first word + first letter of second word if exists
+        const words = baseString.trim().split(/\s+/);
+        let initials = '';
+        if (words.length >= 2) {
+          initials = (words[0][0] + words[1][0]).toUpperCase();
+        } else if (words[0] && words[0].length >= 2) {
+          initials = words[0].substring(0, 2).toUpperCase();
+        } else if (words[0]) {
+          initials = words[0].toUpperCase() + 'P';
+        } else {
+          initials = 'AP';
+        }
 
         return (
           <div 

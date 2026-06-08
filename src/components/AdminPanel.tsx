@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, PlusCircle, LayoutGrid, FileText, Settings2, Globe, Sparkles, 
   Trash2, Edit3, Save, CheckCircle, Info, RefreshCw, Upload, DownloadCloud, Eye, AlertTriangle,
@@ -43,6 +43,78 @@ export function AdminPanel({
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [appToDelete, setAppToDelete] = useState<App | null>(null);
   const { toast } = useToast();
+
+  // User Notes Count State & Real-time Database Synchronization
+  const [notesCount, setNotesCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let channel: any = null;
+
+    const setupAuthAndSubscription = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch initial notes count for authenticated user
+        const { count, error } = await supabase
+          .from('notes')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (!error && count !== null) {
+          setNotesCount(count);
+        } else {
+          // If the notes table does not exist or we get an error, fallback to 0
+          setNotesCount(0);
+        }
+
+        // Subscribe to real-time additions/deletions on 'notes' table
+        channel = supabase
+          .channel('schema-db-notes-changes')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'notes',
+              filter: `user_id=eq.${user.id}`
+            },
+            () => {
+              // Re-fetch exact database count to handle updates/insertions/deletions atomically
+              fetchNotesCount();
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.error("Failed to setup real-time notes count sync:", err);
+        setNotesCount(0);
+      }
+    };
+
+    const fetchNotesCount = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { count, error } = await supabase
+          .from('notes')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        if (!error && count !== null) {
+          setNotesCount(count);
+        }
+      } catch (e) {
+        console.error("Failed to update notes count", e);
+      }
+    };
+
+    setupAuthAndSubscription();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, []);
 
   // New/Edit App Form States
   const [formName, setFormName] = useState('');
@@ -415,7 +487,7 @@ export function AdminPanel({
           {activeTab === 'analytics' && (
             <div className="flex flex-col gap-6 animate-[fade-in_0.2s_ease-out]">
               {/* Analytics Header Metrics Widgets Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-5 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-xl flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-cyan-400/10 flex items-center justify-center text-cyan-400 flex-shrink-0">
                     <Database className="w-5 h-5" />
@@ -423,6 +495,17 @@ export function AdminPanel({
                   <div className="min-w-0">
                     <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider block">Staged Installers</span>
                     <div className="text-xl font-bold font-mono text-white mt-0.5 truncate">{apps.length} PKGs</div>
+                  </div>
+                </div>
+                <div className="p-5 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-xl flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-400/10 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-mono uppercase text-slate-500 tracking-wider block font-semibold">Total Notes</span>
+                    <div className="text-xl font-bold font-mono text-indigo-400 mt-0.5 truncate">
+                      {notesCount !== null ? notesCount : '0'} Notes
+                    </div>
                   </div>
                 </div>
                 <div className="p-5 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-xl flex items-center gap-4">
@@ -486,7 +569,7 @@ export function AdminPanel({
                     return (
                       <div key={app.id} className="p-3 bg-slate-950/40 rounded-xl border border-white/5 flex flex-col justify-between">
                         <div className="flex items-center gap-2">
-                          <AppIcon iconUrl={app.iconUrl} className="w-6 h-6 border border-white/10 rounded-lg flex-shrink-0" />
+                          <AppIcon iconUrl={app.iconUrl} name={app.name} className="w-6 h-6 border border-white/10 rounded-lg flex-shrink-0" />
                           <span className="text-xs text-white truncate font-bold">{app.name}</span>
                         </div>
                         <div className="flex items-center justify-between mt-3 text-[10px] font-mono">
@@ -652,7 +735,7 @@ export function AdminPanel({
                 {apps.map((app) => (
                   <div key={app.id} id={`admin-row-${app.id}`} className="flex items-center justify-between py-4 first:pt-0 last:pb-0 gap-4">
                     <div className="flex items-center gap-3">
-                      <AppIcon iconUrl={app.iconUrl} size="sm" glow={false} />
+                      <AppIcon iconUrl={app.iconUrl} name={app.name} size="sm" glow={false} />
                       <div>
                         <span className="font-bold text-white text-sm md:text-base leading-tight block">{app.name}</span>
                         <div className="flex items-center gap-2 mt-0.5 mt-1">

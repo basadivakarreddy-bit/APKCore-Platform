@@ -103,7 +103,7 @@ export function LatestUpdates({ updates }: LatestUpdatesProps) {
                 {/* Heading details */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-white/5 pb-4 mb-4">
                   <div className="flex items-center gap-3">
-                    <AppIcon iconUrl={update.appIcon || 'app-default'} size="sm" glow={false} />
+                    <AppIcon iconUrl={update.appIcon || 'app-default'} name={update.appName} size="sm" glow={false} />
                     <div>
                       <h4 className="text-white font-bold text-sm md:text-base leading-tight group-hover:text-cyan-300 transition-colors">
                         {update.appName}

@@ -1,0 +1,205 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Base resets & scrollbar styles conforming to premium layouts */
+body {
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #0f172a;
+  overflow-x: hidden;
+  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+html.dark body, body.dark {
+  background-color: #0B0B12;
+  color: #ffffff;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #f8fafc;
+  transition-colors: duration-300;
+}
+
+html.dark {
+  background-color: #0B0B12;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(11, 11, 18, 0.45);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  border: 2px solid #0B0B12;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glowing text utilities */
+.text-shadow-sm {
+  text-shadow: 0 2px 10px rgba(0, 217, 255, 0.25);
+}
+
+.text-shadow {
+  text-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
+}
+
+/* Floating animation profiles */
+@keyframes float-blob {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(90deg); }
+  100% { transform: translateY(0px) rotate(180deg); }
+}
+
+@keyframes pulse-led {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; filter: brightness(1.2); }
+}
+
+@keyframes fade-in-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================
+   HIGH-CONTRAST LIGHT THEME RE-MAPS
+   ========================================== */
+html:not(.dark) {
+  color-scheme: light;
+}
+
+html:not(.dark) ::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5);
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
+  border-radius: 99px;
+  border: 2px solid #f8fafc;
+}
+
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.3);
+}
+
+/* Glassmorphic elements to clean light cards */
+html:not(.dark) .bg-white\/5,
+html:not(.dark) .bg-slate-950\/75,
+html:not(.dark) .bg-slate-950\/45,
+html:not(.dark) .bg-slate-950\/40,
+html:not(.dark) .bg-slate-950\/30,
+html:not(.dark) .bg-slate-950\/20,
+html:not(.dark) .bg-[#0B0B12]\/40,
+html:not(.dark) .backdrop-blur-xl,
+html:not(.dark) .backdrop-blur-2xl,
+html:not(.dark) .backdrop-blur-md {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.02) !important;
+}
+
+html:not(.dark) .border-white\/5,
+html:not(.dark) .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Ensure absolute contrast for headings and core copy text */
+html:not(.dark) .text-white:not(.text-transparent):not(.btn-white-text) {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-slate-100 {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .text-slate-250,
+html:not(.dark) .text-slate-200 {
+  color: #1e293b !important;
+}
+
+html:not(.dark) .text-slate-300,
+html:not(.dark) .text-slate-355,
+html:not(.dark) .text-slate-350 {
+  color: #334155 !important;
+}
+
+html:not(.dark) .text-slate-400 {
+  color: #475569 !important;
+}
+
+html:not(.dark) .bg-slate-950\/40,
+html:not(.dark) .bg-slate-950\/30,
+html:not(.dark) .bg-slate-950\/50,
+html:not(.dark) .bg-slate-950\/80 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Ensure form input tags are fully visible and readable in light mode */
+html:not(.dark) input,
+html:not(.dark) textarea,
+html:not(.dark) select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Active buttons and tabs in light mode */
+html:not(.dark) .bg-white\/10 {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+  color: #0f172a !important;
+}
+
+/* Navigation items hover on light mode */
+html:not(.dark) .hover\:bg-white\/5:hover {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+/* Glowing text shadow bypass for optimal legibility in light mode */
+html:not(.dark) .text-shadow-sm,
+html:not(.dark) .text-shadow {
+  text-shadow: none !important;
+}
+
+/* Fix reviews lists, category lists, updates lists, and stats text readability */
+html:not(.dark) .bg-slate-950\/30 {
+  background-color: rgba(15, 23, 42, 0.03) !important;
+}
+
+/* Preserve bright buttons styles & items that explicitly require high-contrast text overlay */
+html:not(.dark) button.bg-gradient-to-r,
+html:not(.dark) button.bg-\[\#00D9FF\],
+html:not(.dark) .bg-gradient-to-r *,
+html:not(.dark) .bg-\[\#00D9FF\] *,
+html:not(.dark) .text-slate-950,
+html:not(.dark) .text-transparent {
+  color: inherit !important;
+}

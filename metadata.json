@@ -1,0 +1,6 @@
+{
+  "name": "APKCore Platform",
+  "description": "A premium, responsive distribution platform for personal Android applications featuring glassmorphic designs, real-time search, interactive APK downloading, and a secure admin panel.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

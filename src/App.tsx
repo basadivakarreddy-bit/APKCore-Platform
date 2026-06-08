@@ -531,8 +531,12 @@ function StoreContainer() {
     try {
       const session = await supabase.auth.getSession();
       const userId = session?.data?.session?.user?.id || null;
+      
+      // Strip off virtual runtime attributes not present as DB columns
+      const { rawIconUrl, rawApkUrl, ...cleanApp } = newApp;
+      
       const appToInsert = {
-        ...newApp,
+        ...cleanApp,
         user_id: userId
       };
       
@@ -555,9 +559,12 @@ function StoreContainer() {
   const handleUpdateApp = async (updatedApp: AppType) => {
     setIsLoading(true);
     try {
+      // Strip off virtual runtime attributes not present as DB columns
+      const { rawIconUrl, rawApkUrl, ...cleanApp } = updatedApp;
+
       const { error } = await supabase
         .from('apps')
-        .update(updatedApp)
+        .update(cleanApp)
         .eq('id', updatedApp.id);
 
       if (error) throw error;
@@ -604,8 +611,12 @@ function StoreContainer() {
           try {
             const session = await supabase.auth.getSession();
             const userId = session?.data?.session?.user?.id || null;
+            
+            // Strip off virtual runtime attributes not present as DB columns
+            const { rawIconUrl, rawApkUrl, ...cleanAppToRestore } = appToRestore;
+
             const restoredPayload = {
-              ...appToRestore,
+              ...cleanAppToRestore,
               user_id: userId
             };
             const { error: insertError } = await supabase

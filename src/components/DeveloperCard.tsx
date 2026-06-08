@@ -112,7 +112,7 @@ export function DeveloperCard() {
             <motion.a 
               whileHover={{ scale: 1.06, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              href="https://github.com" 
+              href="https://github.com/basadivakarreddy-bit" 
               target="_blank" 
               rel="noreferrer" 
               className="p-3 bg-white/5 hover:bg-[#00D9FF]/10 border border-white/5 hover:border-[#00D9FF]/25 rounded-xl text-slate-400 hover:text-[#00D9FF] transition-all cursor-pointer shadow-sm"
@@ -132,7 +132,7 @@ export function DeveloperCard() {
             <motion.a 
               whileHover={{ scale: 1.06, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              href="https://linkedin.com" 
+              href="https://www.linkedin.com/in/basa-divakar-reddy-765321325/" 
               target="_blank" 
               rel="noreferrer" 
               className="p-3 bg-white/5 hover:bg-[#00D9FF]/10 border border-white/5 hover:border-[#00D9FF]/25 rounded-xl text-slate-400 hover:text-[#00D9FF] transition-all cursor-pointer shadow-sm"
@@ -142,7 +142,7 @@ export function DeveloperCard() {
             <motion.a 
               whileHover={{ scale: 1.06, y: -2 }}
               whileTap={{ scale: 0.98 }}
-              href="mailto:contact@domain.corp" 
+              href="mailto:basadivakarreddy@gmail.com" 
               className="p-3 bg-white/5 hover:bg-pink-500/10 border border-white/5 hover:border-pink-500/25 rounded-xl text-slate-400 hover:text-pink-400 transition-all cursor-pointer shadow-sm"
             >
               <Mail className="w-5 h-5" />

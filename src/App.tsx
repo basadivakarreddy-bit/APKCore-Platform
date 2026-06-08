@@ -20,6 +20,7 @@ import { DeveloperCard } from './components/DeveloperCard';
 import { LatestUpdates } from './components/LatestUpdates';
 import { AdminPanel } from './components/AdminPanel';
 import { LoginModal } from './components/LoginModal';
+import { supabase } from './supabaseClient';
 
 export default function App() {
   return (
@@ -53,15 +54,65 @@ function StoreContainer() {
       return null;
     }
   });
+
+  // Supabase Auth State synchronization
+  useEffect(() => {
+    const mapSupabaseUserToAuthUser = (user: any): AuthUser | null => {
+      if (!user) return null;
+      const email = user.email || '';
+      const name = user.user_metadata?.name || user.user_metadata?.full_name || email.split('@')[0];
+      const role = email.toLowerCase().trim() === 'basadivakarreddy@gmail.com' ? 'admin' : 'user';
+      return { email, name, role };
+    };
+
+    // Get initial system login session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const userObj = mapSupabaseUserToAuthUser(session.user);
+        setCurrentUser(userObj);
+        localStorage.setItem('apk_store_current_user', JSON.stringify(userObj));
+      }
+    }).catch(err => {
+      console.warn("Supabase initial session fetch error:", err);
+    });
+
+    // Subscribe to real-time credential handshake changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const userObj = mapSupabaseUserToAuthUser(session.user);
+        setCurrentUser(userObj);
+        localStorage.setItem('apk_store_current_user', JSON.stringify(userObj));
+        // Redirect the user to the Home page ('/') on changes
+        setActiveTab('catalog');
+        setSelectedAppSlug(null);
+      } else {
+        setCurrentUser(null);
+        localStorage.removeItem('apk_store_current_user');
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginModalDefaultRole, setLoginModalDefaultRole] = useState<'admin' | 'user'>('user');
 
   const handleLoginSuccess = (user: AuthUser) => {
     setCurrentUser(user);
     localStorage.setItem('apk_store_current_user', JSON.stringify(user));
+    // Redirect user to the catalog Home view
+    setActiveTab('catalog');
+    setSelectedAppSlug(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Supabase sign-out failed:', err);
+    }
     setCurrentUser(null);
     localStorage.removeItem('apk_store_current_user');
     if (activeTab === 'admin') {

@@ -312,33 +312,99 @@ function StoreContainer() {
     }
   }, [theme]);
 
-  useEffect(() => {
-    // 1. Initial local databases load checks
-    const cachedApps = localStorage.getItem('apk_store_apps_data');
-    if (cachedApps) {
-      setApps(JSON.parse(cachedApps));
-    } else {
-      setApps(initialApps);
-      localStorage.setItem('apk_store_apps_data', JSON.stringify(initialApps));
-    }
+  // Load apps from Supabase
+  const loadApps = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('apps')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    const cachedMessages = localStorage.getItem('apk_store_messages_data');
-    if (cachedMessages) {
-      setMessages(JSON.parse(cachedMessages));
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setApps(data as AppType[]);
+      } else {
+        // DB is empty! Let's auto-seed the Supabase DB if the user has an auth session
+        console.log("No apps found in Supabase. Seeding...");
+        setApps(initialApps);
+        
+        const session = await supabase.auth.getSession();
+        const userId = session?.data?.session?.user?.id || null;
+        
+        const seededApps = initialApps.map(app => ({
+          ...app,
+          user_id: userId
+        }));
+
+        const { error: seedError } = await supabase
+          .from('apps')
+          .insert(seededApps);
+
+        if (!seedError) {
+          console.log("Database successfully seeded with initialApps!");
+          const { data: refetched } = await supabase
+            .from('apps')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (refetched) {
+            setApps(refetched as AppType[]);
+          }
+        } else {
+          console.warn("Seeding database failed (this is expected if not authenticated admin):", seedError);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching apps:', err);
+      // Fallback to cache/initial data
+      const cached = localStorage.getItem('apk_store_apps_data');
+      setApps(cached ? JSON.parse(cached) : initialApps);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Load messages from Supabase (restricted in real systems, loaded safely)
+  const loadMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      const cached = localStorage.getItem('apk_store_messages_data');
+      setMessages(cached ? JSON.parse(cached) : []);
+    }
+  };
+
+  useEffect(() => {
+    loadApps();
 
     const cachedStorage = localStorage.getItem('apk_store_storage_config');
     if (cachedStorage) {
       setStorageConfig(JSON.parse(cachedStorage));
     }
 
-    // 2. Trigger Scroll listener
     const handleScroll = () => {
       setShowScrollTop(window.scrollY > 300);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Fetch messages reactively based on currentUser role
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'admin') {
+      loadMessages();
+    } else {
+      setMessages([]);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if (activeTab === 'admin') {
@@ -391,57 +457,152 @@ function StoreContainer() {
   };
 
   // State manipulation interfaces
-  const handleAddApp = (newApp: AppType) => {
-    const updated = [newApp, ...apps];
-    saveAppsToCache(updated);
+  const handleAddApp = async (newApp: AppType) => {
+    setIsLoading(true);
+    try {
+      const session = await supabase.auth.getSession();
+      const userId = session?.data?.session?.user?.id || null;
+      const appToInsert = {
+        ...newApp,
+        user_id: userId
+      };
+      
+      const { error } = await supabase
+        .from('apps')
+        .insert([appToInsert]);
+
+      if (error) throw error;
+      
+      toast(`"${newApp.name}" successfully added to Supabase database!`, 'success');
+      loadApps();
+    } catch (err: any) {
+      console.error('Error adding app to Supabase:', err);
+      toast(`Failed to add app: ${err.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleUpdateApp = (updatedApp: AppType) => {
-    const updated = apps.map((a) => (a.id === updatedApp.id ? updatedApp : a));
-    saveAppsToCache(updated);
+  const handleUpdateApp = async (updatedApp: AppType) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('apps')
+        .update(updatedApp)
+        .eq('id', updatedApp.id);
+
+      if (error) throw error;
+
+      toast(`"${updatedApp.name}" successfully updated in Supabase database!`, 'success');
+      loadApps();
+    } catch (err: any) {
+      console.error('Error updating app in Supabase:', err);
+      toast(`Failed to update app: ${err.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteApp = (appId: string) => {
+  const handleDeleteApp = async (appId: string) => {
     const appToRestore = apps.find((a) => a.id === appId);
     if (!appToRestore) return;
 
-    const originalIndex = apps.findIndex((a) => a.id === appId);
-    const updated = apps.filter((a) => a.id !== appId);
-    saveAppsToCache(updated);
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('apps')
+        .delete()
+        .eq('id', appId);
 
-    toast(
-      `"${appToRestore.name}" was permanently deleted.`,
-      'info',
-      7000,
-      () => {
-        setApps((currentApps) => {
-          if (currentApps.some((a) => a.id === appToRestore.id)) return currentApps;
-          const restored = [...currentApps];
-          restored.splice(originalIndex, 0, appToRestore);
-          localStorage.setItem('apk_store_apps_data', JSON.stringify(restored));
-          return restored;
-        });
-        toast(`"${appToRestore.name}": layout restored successfully!`, 'success');
-      },
-      'UNDO'
-    );
+      if (error) throw error;
+
+      toast(
+        `"${appToRestore.name}" permanently deleted from Supabase database.`,
+        'info',
+        7000,
+        async () => {
+          try {
+            const session = await supabase.auth.getSession();
+            const userId = session?.data?.session?.user?.id || null;
+            const restoredPayload = {
+              ...appToRestore,
+              user_id: userId
+            };
+            const { error: insertError } = await supabase
+              .from('apps')
+              .insert([restoredPayload]);
+
+            if (insertError) throw insertError;
+            toast(`"${appToRestore.name}": layout restored successfully!`, 'success');
+            loadApps();
+          } catch (undoErr: any) {
+            console.error('Error undoing delete:', undoErr);
+            toast(`Failed to restore app on server: ${undoErr.message}`, 'error');
+          }
+        },
+        'UNDO'
+      );
+      loadApps();
+    } catch (err: any) {
+      console.error('Error deleting app from Supabase:', err);
+      toast(`Failed to delete app: ${err.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAddMessage = (newMsg: Message) => {
-    const updated = [newMsg, ...messages];
-    setMessages(updated);
-    localStorage.setItem('apk_store_messages_data', JSON.stringify(updated));
+  const handleAddMessage = async (newMsg: Message) => {
+    try {
+      const session = await supabase.auth.getSession();
+      const userId = session?.data?.session?.user?.id || null;
+      const msgToInsert = {
+        ...newMsg,
+        user_id: userId
+      };
+      
+      const { error } = await supabase
+        .from('messages')
+        .insert([msgToInsert]);
+
+      if (error) throw error;
+      toast('Your message has been successfully saved to Supabase!', 'success');
+      loadMessages();
+    } catch (err: any) {
+      console.error('Error sending message:', err);
+      toast(`Failed to register message: ${err.message}`, 'error');
+    }
   };
 
-  const handleDeleteMessage = (msgId: string) => {
-    const updated = messages.filter((m) => m.id !== msgId);
-    setMessages(updated);
-    localStorage.setItem('apk_store_messages_data', JSON.stringify(updated));
+  const handleDeleteMessage = async (msgId: string) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', msgId);
+
+      if (error) throw error;
+      toast('Message removed successfully.', 'info');
+      loadMessages();
+    } catch (err: any) {
+      console.error('Error deleting message:', err);
+      toast(`Failed to delete message: ${err.message}`, 'error');
+    }
   };
 
-  const handleClearMessages = () => {
-    setMessages([]);
-    localStorage.removeItem('apk_store_messages_data');
+  const handleClearMessages = async () => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .neq('id', 'placeholder-nonexistent'); // deletes all
+
+      if (error) throw error;
+      toast('Inbox cleared completely.', 'success');
+      loadMessages();
+    } catch (err: any) {
+      console.error('Error clearing inbox:', err);
+      toast(`Failed to clear inbox: ${err.message}`, 'error');
+    }
   };
 
   const handleUpdateStorageConfig = (config: StorageConfig) => {
@@ -449,17 +610,31 @@ function StoreContainer() {
     localStorage.setItem('apk_store_storage_config', JSON.stringify(config));
   };
 
-  const handleIncrementDownloads = (appId: string) => {
-    const updated = apps.map((app) => {
-      if (app.id === appId) {
-        return { ...app, downloads: app.downloads + 1 };
+  const handleIncrementDownloads = async (appId: string) => {
+    const app = apps.find((a) => a.id === appId);
+    if (!app) return;
+
+    // Optimistic download increment
+    setApps(prev => prev.map(a => a.id === appId ? { ...a, downloads: a.downloads + 1 } : a));
+
+    try {
+      const { error } = await supabase
+        .from('apps')
+        .update({ downloads: app.downloads + 1 })
+        .eq('id', appId);
+
+      if (error) {
+        console.warn('Could not update download tally on Supabase:', error);
       }
-      return app;
-    });
-    saveAppsToCache(updated);
+    } catch (err) {
+      console.error('Download increment error:', err);
+    }
   };
 
-  const handleAddReview = (appId: string, rating: number, comment: string, author: string) => {
+  const handleAddReview = async (appId: string, rating: number, comment: string, author: string) => {
+    const app = apps.find((a) => a.id === appId);
+    if (!app) return;
+
     const newReview = {
       id: Math.random().toString(36).substring(2, 9),
       rating,
@@ -467,22 +642,34 @@ function StoreContainer() {
       author: author.trim() || 'Anonymous',
       date: new Date().toISOString().split('T')[0]
     };
-    const updated = apps.map((app) => {
-      if (app.id === appId) {
-        const currentReviews = app.reviews || [];
-        const newReviews = [newReview, ...currentReviews];
-        const totalRating = newReviews.reduce((sum, r) => sum + r.rating, 0);
-        const newAverage = parseFloat((totalRating / newReviews.length).toFixed(1));
-        return {
-          ...app,
+
+    const currentReviews = app.reviews || [];
+    const newReviews = [newReview, ...currentReviews];
+    const totalRating = newReviews.reduce((sum, r) => sum + r.rating, 0);
+    const newAverage = parseFloat((totalRating / newReviews.length).toFixed(1));
+
+    // Optimistic UI review addition
+    setApps(prev => prev.map(a => a.id === appId ? { ...a, reviews: newReviews, rating: newAverage } : a));
+
+    try {
+      const { error } = await supabase
+        .from('apps')
+        .update({
           reviews: newReviews,
           rating: newAverage
-        };
+        })
+        .eq('id', appId);
+
+      if (error) {
+        console.error('Could not submit review to Supabase:', error);
+        toast('Your review was stored locally, but could not sync with Supabase.', 'info');
+      } else {
+        toast('Your review has been successfully submitted to Supabase!', 'success');
+        loadApps();
       }
-      return app;
-    });
-    saveAppsToCache(updated);
-    toast('Your review has been successfully submitted!', 'success');
+    } catch (err) {
+      console.error('Review submission error:', err);
+    }
   };
 
   const handleShareApp = async (app: AppType) => {

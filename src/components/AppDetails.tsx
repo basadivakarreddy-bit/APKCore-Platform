@@ -121,7 +121,7 @@ export function AppDetails({ app, onBack, onIncrementDownloads, onAddReview, onS
           
           let finalDownloadUrl = app.apkUrl;
           if (app.id === 'nexus-qr' || app.slug === 'nexus-qr' || app.name.toLowerCase().includes('nexus') || app.name.toLowerCase().includes('qr')) {
-            finalDownloadUrl = "https://pgeizyxtikgjidbejxoy.supabase.co/storage/v1/object/sign/app-files/13871fe6-1ad5-4257-9b6c-66838e9fee4e/apps/nexus-qr/zce6qek.apk?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NmVlZWMzZi1hYzg4LTRjNGYtODk4My0wOWFjMTMyNDk2MWIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhcHAtZmlsZXMvMTM4NzFmZTYtMWFkNS00MjU3LTliNmMtNjY4MzhlOWZlZTRlL2FwcHMvbmV4dXMtcXIvemNlNnFlay5hcGsiLCJpYXQiOjE3ODA5MjU0NTgsImV4cCI6MTgxMjQ2MTQ1OH0.tOerIuK3hvyEw0Rb4Cg0c8X5hsae9dlX01wSXNXHaXY";
+            finalDownloadUrl = "https://pgeizyxtikgjidbejxoy.supabase.co/storage/v1/object/sign/app-files/13871fe6-1ad5-4257-9b6c-66838e9fee4e/apps/nexus-qr/app-release.apk?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV84NmVlZWMzZi1hYzg4LTRjNGYtODk4My0wOWFjMTMyNDk2MWIiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhcHAtZmlsZXMvMTM4NzFmZTYtMWFkNS00MjU3LTliNmMtNjY4MzhlOWZlZTRlL2FwcHMvbmV4dXMtcXIvYXBwLXJlbGVhc2UuYXBrIiwiaWF0IjoxNzgwOTgwNTk2LCJleHAiOjE4MTI1MTY1OTZ9.1Q8zn7a9Gp0_dWFEt2Xg5XxQy5zJw1esaXWBLsQxZu4";
           }
           
           if (finalDownloadUrl && finalDownloadUrl.startsWith('http')) {

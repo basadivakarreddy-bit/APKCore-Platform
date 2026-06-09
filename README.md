@@ -92,11 +92,6 @@ The system features high-fidelity default utility templates that emphasize stand
 
 | App Name | Category | Bundle Weight | Special Features | Highlighted Permission |
 | :--- | :---: | :---: | :---: | :--- |
-| **Nova AI Assistant** | `AI` | `18.4 MB` | Voice sync, search grounding, widgets | `Microphone (Voice inputs)` |
-| **TaskPulse Client** | `Productivity` | `12.1 MB` | Drag & Drop kanban, offline habits | `System Notifications` |
-| **RetroQuest Emulator**| `Games` | `34.2 MB` | OpenGL acceleration, virtual buttons| `Controller Storage` |
-| **DevGate Terminal** | `Utilities` | `22.6 MB` | SSH / SFTP, sandboxed shell terminal | `Network & Credentials Storage` |
-| **Aura Premium Spaces**| `Social` | `45.0 MB` | Ambient audio loops, shared breathing chambers | `Audio Management` |
 | **Nexus QR** | `Tools` | Built-in | Fast QR scanner/generator & download vault | `Camera Access & Local storage` |
 
 ---

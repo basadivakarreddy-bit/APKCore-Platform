@@ -14,7 +14,14 @@ export function GlowBackground() {
   const bgGlowY = useSpring(mouseY, bgSpringConfig);
 
   useEffect(() => {
+    // Only enable active mouse tracking on desktop clients with actual pointing devices
+    const isTouchOnly = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
+    if (isTouchOnly) {
+      return;
+    }
+
     const handleMouseMove = (e: MouseEvent) => {
+      // Use requestAnimationFrame to gate rapid mouse inputs for standard screens
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
       if (!isHovering) {
@@ -26,8 +33,8 @@ export function GlowBackground() {
       setIsHovering(false);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    document.addEventListener('mouseleave', handleMouseLeave, { passive: true });
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
@@ -40,39 +47,39 @@ export function GlowBackground() {
       <div
         className="fixed inset-0 -z-50 bg-slate-50 dark:bg-[#0B0B12] overflow-hidden pointer-events-none select-none transition-colors duration-300"
       >
-        {/* Aurora Ambient Gradients (Apple Vision Pro vibe) */}
+        {/* Aurora Ambient Gradients (Optimized with GPU layers via will-change) */}
         <div 
-          className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-500/10 dark:bg-cyan-500/10 blur-[130px] opacity-70 animate-[pulse_12s_ease-in-out_infinite]"
+          className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-500/10 dark:bg-cyan-500/10 blur-[130px] opacity-70 animate-[pulse_12s_ease-in-out_infinite] will-change-[transform,opacity]"
           style={{ animationDelay: '0s' }}
         />
         <div 
-          className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] rounded-full bg-purple-600/10 dark:bg-purple-600/10 blur-[150px] opacity-60 animate-[pulse_16s_ease-in-out_infinite]"
+          className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] rounded-full bg-purple-600/10 dark:bg-purple-600/10 blur-[150px] opacity-60 animate-[pulse_16s_ease-in-out_infinite] will-change-[transform,opacity]"
           style={{ animationDelay: '3s' }}
         />
         <div 
-          className="absolute top-[30%] right-[10%] w-[45%] h-[45%] rounded-full bg-pink-500/5 dark:bg-pink-500/5 blur-[120px] opacity-40 animate-[pulse_10s_ease-in-out_infinite]"
+          className="absolute top-[30%] right-[10%] w-[45%] h-[45%] rounded-full bg-pink-500/5 dark:bg-pink-500/5 blur-[120px] opacity-40 animate-[pulse_10s_ease-in-out_infinite] will-change-[transform,opacity]"
           style={{ animationDelay: '6s' }}
         />
 
         {/* Floating Liquid Blobs */}
         <div 
-          className="absolute top-[20%] left-[15%] w-72 h-72 rounded-full bg-gradient-to-r from-cyan-400/5 to-blue-500/5 blur-3xl opacity-50"
+          className="absolute top-[20%] left-[15%] w-72 h-72 rounded-full bg-gradient-to-r from-cyan-400/5 to-blue-500/5 blur-3xl opacity-50 will-change-transform"
           style={{
             animation: 'float-liquid 25s infinite alternate ease-in-out'
           }}
         />
         <div 
-          className="absolute bottom-[20%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-tr from-purple-500/5 to-pink-500/5 blur-3xl opacity-40"
+          className="absolute bottom-[20%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-tr from-purple-500/5 to-pink-500/5 blur-3xl opacity-40 will-change-transform"
           style={{
             animation: 'float-liquid 30s infinite alternate-reverse ease-in-out',
             animationDelay: '4s'
           }}
         />
 
-        {/* HIGH-FIDELITY MOUSE FOLLOW AMBIENT GLOW ZONE (Behind App cards, in -z-40 layer) */}
+        {/* HIGH-FIDELITY MOUSE FOLLOW AMBIENT GLOW ZONE (Behind App cards, in -z-40 layer - fully GPU accelerated) */}
         {isHovering && (
           <motion.div
-            className="absolute pointer-events-none rounded-full blur-[110px] opacity-45 dark:opacity-40 bg-gradient-to-r from-cyan-400/25 via-purple-500/20 to-pink-500/20"
+            className="absolute pointer-events-none rounded-full blur-[110px] opacity-45 dark:opacity-40 bg-gradient-to-r from-cyan-400/25 via-purple-500/20 to-pink-500/20 will-change-transform"
             style={{
               x: bgGlowX,
               y: bgGlowY,

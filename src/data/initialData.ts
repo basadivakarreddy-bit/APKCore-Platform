@@ -275,21 +275,21 @@ export const initialFAQs: FAQ[] = [
   {
     id: 'faq-1',
     question: 'How do I manually install these APK files on my Android device?',
-    answer: 'Installing APKs directly is incredibly simple: \n1. First, download your preferred app’s APK file directly from this store.\n2. Once completed, tap the notification or navigate to your device’s File Manager > Downloads directory.\n3. Open the downloaded file. Your Android system will prompt a secure installer dialog.\n4. If it is your first time, you will need to grant "Allow installations from this source" for your web browser or file manager.\n5. Click "Install" and your application is immediately available in the launcher!'
+    answer: '1. Download the APK file from the application details panel.\n2. Tap the file in your notification bar or find it under File Manager > Downloads.\n3. If prompted, enable "Allow installations from this source" for your browser, then tap "Install".'
   },
   {
     id: 'faq-2',
     question: 'Are all applications distributed on this platform safe and audited?',
-    answer: 'Absolutely. Every application hosted is personally written and fully compiled from source by the developer, ensuring 100% security with no embedded tracking, backdoors, or telemetry components.\n\nAll files are thoroughly scanned using Google Play Protect prior to publication, ensuring absolute system integrity. You are free to cross-verify the SHA-256 signatures of any APK file displayed inside the details page.'
+    answer: 'Absolutely. Every app is compiled directly from secure source code and verified with Google Play Protect to ensure zero trackers or malware. You can cross-verify the secure SHA-256 signatures in the app details view.'
   },
   {
     id: 'faq-3',
     question: 'How do I receive updates when a new app version becomes available?',
-    answer: 'You will find the newest releases published in the "Latest Updates" section of this website. To update an existing app, simply download the new APK version from our platform and run the installer. The Android system will automatically identify it as an upgrade and seamlessly overwrite the old app without affecting any of your local databases, files, or state keys!'
+    answer: 'Simply download and run the latest APK installer from the platform. Your Android system automatically recognizes it as a safe upgrade and preserves all your application settings and offline local databases.'
   },
   {
     id: 'faq-4',
     question: 'What is the minimum compatible Android version required to run these apps?',
-    answer: 'Most applications are written focusing on extensive backwards compatibility to run beautifully on standard devices. However, individual requirements differ based on complex rendering or system packages utilized:\n\n• DevGate Terminal: Requires Android 11.0 (API Level 30) or higher.\n• Nova AI & TaskPulse: Requires Android 10.0 (API Level 29) or higher.\n• RetroQuest & Aura: Requires Android 8.0/9.0 or higher. You can check the specific minimum Android requirement under the "Information" table inside the respectve App Details views.'
+    answer: 'Most applications support Android 8.0 (API Level 26) or higher. You can quickly doublecheck the exact minimum Android OS requirement under the Information section inside the specific application details view.'
   }
 ];
